@@ -154,8 +154,8 @@ void turnLeft()
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
 
-    analogWrite(ENA, 900);
-    analogWrite(ENB, 900);
+    analogWrite(ENA, 200);
+    analogWrite(ENB, 200);
 }
 
 void turnRight()
@@ -166,8 +166,8 @@ void turnRight()
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
 
-    analogWrite(ENA, 900);
-    analogWrite(ENB, 900);
+    analogWrite(ENA, 200);
+    analogWrite(ENB, 200);
 }
 
 // ================== HANDLERS ==================
@@ -179,7 +179,6 @@ void handleRoot()
 
 void setup()
 {
-    Serial.begin(115200);
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,LOW);
     pinMode(IN1, OUTPUT);
@@ -195,10 +194,6 @@ void setup()
     // Start Access Point
     WiFi.softAP(ssid, password);
 
-    Serial.println();
-    Serial.println("Access Point Started");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.softAPIP());
 
     // Web Routes
     server.on("/", handleRoot);
@@ -230,7 +225,7 @@ void setup()
 
     server.begin();
 
-    Serial.println("Web Server Started");
+ 
 }
 
 void loop()
