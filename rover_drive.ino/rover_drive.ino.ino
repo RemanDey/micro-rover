@@ -1,66 +1,153 @@
-// ESP8266 Built-in LED Blink Code
-#include <ESP8266WiFi.h>        // Include the Wi-Fi library
-#include <ESP8266WebServer.h>
-const char *ssid = "ESP8266 Access Point"; // The name of the Wi-Fi network that will be created
-const char *password = "1234";   // The password required to connect to it, leave blank for an open network
+#include <ESP8266WiFi.h>
+#include <WebSocketsServer.h>
 
-ESP8266WebServer server(80);
-void handleRoot();              // function prototypes for HTTP handlers
-void handleLED();
-void handleNotFound();
-void setup() {
-  WiFi.softAP(ssid, password);
-  // Initialize the built-in LED pin as an output
-  pinMode(LED_BUILTIN, OUTPUT); 
-  pinMode(D0,OUTPUT);
-  pinMode(D1,OUTPUT);
-  pinMode(D2,OUTPUT);
-    pinMode(D5,OUTPUT);
-  pinMode(D6,OUTPUT);
-  pinMode(D7,OUTPUT);
-    digitalWrite(D0,LOW);
-  digitalWrite(D1,LOW);
-  digitalWrite(D2,LOW); 
-      digitalWrite(D5,LOW);
-  digitalWrite(D6,LOW);
-  digitalWrite(D7,LOW); 
-  server.on("/", HTTP_GET, handleRoot);     // Call the 'handleRoot' function when a client requests URI "/"
-  server.on("/LED", HTTP_POST, handleLED);  // Call the 'handleLED' function when a POST request is made to URI "/LED"
-  server.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
+// ======================
+// Access Point Settings
+// ======================
 
-  server.begin();         
+const char* ssid = "ROS_ROBOT";
+const char* password = "12345678";
+
+// ======================
+// WebSocket Server
+// ======================
+
+WebSocketsServer webSocket = WebSocketsServer(81);
+
+// ======================
+// Motor Pins
+// ======================
+
+#define IN1 D1
+#define IN2 D2
+#define IN3 D6
+#define IN4 D7
+
+#define ENA D0
+#define ENB D5
+
+int motorSpeed = 700;
+
+// ======================
+// Motor Functions
+// ======================
+
+void stopBot() {
+
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
 }
+
+void setMotor(int leftSpeed, int rightSpeed) {
+
+  // LEFT MOTOR
+  if(leftSpeed >= 0) {
+
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+
+  } else {
+
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+
+    leftSpeed = -leftSpeed;
+  }
+
+  // RIGHT MOTOR
+  if(rightSpeed >= 0) {
+
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+
+  } else {
+
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+
+    rightSpeed = -rightSpeed;
+  }
+
+  leftSpeed = constrain(leftSpeed, 0, 1023);
+  rightSpeed = constrain(rightSpeed, 0, 1023);
+
+  analogWrite(ENA, leftSpeed);
+  analogWrite(ENB, rightSpeed);
+}
+
+// ======================
+// WebSocket Event
+// ======================
+
+void webSocketEvent(uint8_t num,
+                    WStype_t type,
+                    uint8_t * payload,
+                    size_t length) {
+
+  if(type == WStype_TEXT) {
+
+    String data = (char*)payload;
+
+    int commaIndex = data.indexOf(',');
+
+    if(commaIndex > 0) {
+
+      int leftPWM =
+          data.substring(0, commaIndex).toInt();
+
+      int rightPWM =
+          data.substring(commaIndex + 1).toInt();
+
+      setMotor(leftPWM, rightPWM);
+    }
+  }
+}
+
+// ======================
+// Setup
+// ======================
+
+void setup() {
+
+
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  stopBot();
+
+  // ======================
+  // Start Access Point
+  // ======================
+
+  WiFi.softAP(ssid, password);
+
+  IPAddress IP = WiFi.softAPIP();
+
+  // Serial.println("");
+  // Serial.println("Access Point Started");
+  // Serial.print("IP Address: ");
+  // Serial.println(IP);
+
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+}
+
+// ======================
+// Main Loop
+// ======================
 
 void loop() {
-  server.handleClient();
-  // digitalWrite(LED_BUILTIN, LOW);  // Turn the LED on (Active Low)
 
-  // digitalWrite(D0,HIGH);
-  // digitalWrite(D1,LOW);
-  // digitalWrite(D2,HIGH); 
-  // delay(5000);                     // Wait for a second
-  // digitalWrite(LED_BUILTIN, HIGH);
-  // digitalWrite(D0,HIGH);
-  // digitalWrite(D1,HIGH);
-  // digitalWrite(D2,LOW);  // Turn the LED off
-  // delay(5000);                      // Wait for a second
-}
-void handleRoot(){
-  server.send(200, "text/html", "<form action=\"/LED\" method=\"POST\"><input type=\"submit\" value=\"Toggle MOTOR\"></form>");
-}
-void handleLED() {                          // If a POST request is made to URI /LED
-  digitalWrite(LED_BUILTIN,!digitalRead(LED_BUILTIN));  
-      // Change the state of the LED
-  digitalWrite(D0,!digitalRead(D0));
-  digitalWrite(D1,LOW);
-  digitalWrite(D2,HIGH); 
-  digitalWrite(D5,!digitalRead(D5));
-  digitalWrite(D6,LOW);
-  digitalWrite(D7,HIGH); 
-  server.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
-  server.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
-}
-
-void handleNotFound(){
-  server.send(404, "text/plain", "404: Not found"); // Send HTTP status 404 (Not Found) when there's no handler for the URI in the request
+  webSocket.loop();
 }

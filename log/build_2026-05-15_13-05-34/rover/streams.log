@@ -1,0 +1,23 @@
+[1.194s] Invoking command in '/home/remandey/micro-rover/src/rover': PYTHONPATH=/home/remandey/micro-rover/build/rover/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/remandey/micro-rover/install/rover/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/rover build --build-base /home/remandey/micro-rover/build/rover/build install --record /home/remandey/micro-rover/build/rover/install.log --single-version-externally-managed install_data
+[1.593s] running egg_info
+[1.593s] writing ../../build/rover/rover.egg-info/PKG-INFO
+[1.594s] writing dependency_links to ../../build/rover/rover.egg-info/dependency_links.txt
+[1.594s] writing entry points to ../../build/rover/rover.egg-info/entry_points.txt
+[1.594s] writing requirements to ../../build/rover/rover.egg-info/requires.txt
+[1.594s] writing top-level names to ../../build/rover/rover.egg-info/top_level.txt
+[1.597s] reading manifest file '../../build/rover/rover.egg-info/SOURCES.txt'
+[1.598s] writing manifest file '../../build/rover/rover.egg-info/SOURCES.txt'
+[1.598s] running build
+[1.599s] running build_py
+[1.599s] copying rover/drive.py -> /home/remandey/micro-rover/build/rover/build/lib/rover
+[1.599s] running install
+[1.599s] running install_lib
+[1.600s] copying /home/remandey/micro-rover/build/rover/build/lib/rover/drive.py -> /home/remandey/micro-rover/install/rover/lib/python3.10/site-packages/rover
+[1.601s] byte-compiling /home/remandey/micro-rover/install/rover/lib/python3.10/site-packages/rover/drive.py to drive.cpython-310.pyc
+[1.602s] running install_data
+[1.602s] running install_egg_info
+[1.605s] removing '/home/remandey/micro-rover/install/rover/lib/python3.10/site-packages/rover-0.0.0-py3.10.egg-info' (and everything under it)
+[1.605s] Copying ../../build/rover/rover.egg-info to /home/remandey/micro-rover/install/rover/lib/python3.10/site-packages/rover-0.0.0-py3.10.egg-info
+[1.607s] running install_scripts
+[1.637s] writing list of installed files to '/home/remandey/micro-rover/build/rover/install.log'
+[1.675s] Invoked command in '/home/remandey/micro-rover/src/rover' returned '0': PYTHONPATH=/home/remandey/micro-rover/build/rover/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/remandey/micro-rover/install/rover/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/rover build --build-base /home/remandey/micro-rover/build/rover/build install --record /home/remandey/micro-rover/build/rover/install.log --single-version-externally-managed install_data
