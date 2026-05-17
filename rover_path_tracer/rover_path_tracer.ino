@@ -2,7 +2,7 @@
 #include <ESP8266WebServer.h>
 
 // ================== WIFI AP ==================
-const char* ssid = "ESP_Rover";
+const char* ssid = "Zade_Rover";
 const char* password = "12345678";
 
 ESP8266WebServer server(80);
@@ -16,15 +16,18 @@ ESP8266WebServer server(80);
 #define ENA D0
 #define ENB D5
 
-// ================== MOTOR SETTINGS ==================
+// ================== SETTINGS ==================
 #define MAX_SPEED 1023
 
 // ================== HTML PAGE ==================
 String webpage = R"=====(
+
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Zade - Differential Drive Rover</title>
+
+<title>Zade Rover</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -67,7 +70,25 @@ h1{
     margin-top:20px;
 }
 
+#mapCanvas{
+    background:#000;
+    border:2px solid #555;
+    border-radius:10px;
+    margin-top:20px;
+}
+
+button{
+    margin-top:20px;
+    padding:12px 20px;
+    font-size:18px;
+    border:none;
+    border-radius:10px;
+    background:#3498db;
+    color:white;
+}
+
 </style>
+
 </head>
 
 <body>
@@ -82,7 +103,17 @@ h1{
     Drag joystick to move rover
 </div>
 
+<h2>Trajectory Map</h2>
+
+<canvas id="mapCanvas" width="500" height="500"></canvas>
+
+<br>
+
+<button onclick="resetMap()">Reset Map</button>
+
 <script>
+
+// ================= JOYSTICK =================
 
 const joy = document.getElementById("joystick");
 const container = document.getElementById("joystickContainer");
@@ -93,16 +124,129 @@ const centerX = 150;
 const centerY = 150;
 const maxRadius = 100;
 
+// ================= MAP =================
+
+const canvas = document.getElementById("mapCanvas");
+const ctx = canvas.getContext("2d");
+
+let roverX = 250;
+let roverY = 250;
+
+let theta = 0;
+
+let lastTime = Date.now();
+
+const scale = 0.05;
+
+// Draw starting point
+ctx.fillStyle = "lime";
+ctx.fillRect(roverX, roverY, 3, 3);
+
+// ================= SEND MOTOR COMMAND =================
+
 function sendMotor(left, right)
 {
     fetch(`/move?left=${left}&right=${right}`);
+
+    updateTrajectory(left, right);
 }
+
+// ================= MOVE JOYSTICK =================
 
 function moveJoystick(x, y)
 {
     joy.style.left = (x - 50) + "px";
     joy.style.top  = (y - 50) + "px";
 }
+
+// ================= TRAJECTORY =================
+
+function updateTrajectory(left, right)
+{
+    const now = Date.now();
+
+    let dt = (now - lastTime) / 1000.0;
+
+    lastTime = now;
+
+    // Normalize
+    let l = left / 1023.0;
+    let r = right / 1023.0;
+
+    // Differential drive model
+    let linear  = (l + r) / 2.0;
+    let angular = (l - r) * 2.0;
+
+    linear *= 800;
+
+    // Update heading
+    theta += angular * dt;
+
+    // Compute movement
+    let dx = linear * Math.cos(theta) * dt;
+    let dy = linear * Math.sin(theta) * dt;
+
+    let prevX = roverX;
+    let prevY = roverY;
+
+    roverX += dx * scale;
+    roverY += dy * scale;
+
+    // Draw path
+    ctx.beginPath();
+    ctx.moveTo(prevX, prevY);
+    ctx.lineTo(roverX, roverY);
+
+    ctx.strokeStyle = "lime";
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+
+    drawRover();
+}
+
+// ================= DRAW ROVER =================
+
+function drawRover()
+{
+    // Rover body
+    ctx.fillStyle = "red";
+
+    ctx.beginPath();
+    ctx.arc(roverX, roverY, 5, 0, 2*Math.PI);
+
+    ctx.fill();
+
+    // Heading line
+    let hx = roverX + 15*Math.cos(theta);
+    let hy = roverY + 15*Math.sin(theta);
+
+    ctx.beginPath();
+    ctx.moveTo(roverX, roverY);
+    ctx.lineTo(hx, hy);
+
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+}
+
+// ================= RESET MAP =================
+
+function resetMap()
+{
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    roverX = 250;
+    roverY = 250;
+
+    theta = 0;
+
+    ctx.fillStyle = "lime";
+    ctx.fillRect(roverX, roverY, 3, 3);
+}
+
+// ================= PROCESS JOYSTICK =================
 
 function processJoystick(clientX, clientY)
 {
@@ -114,7 +258,7 @@ function processJoystick(clientX, clientY)
     let dx = x - centerX;
     let dy = centerY - y;
 
-    // Limit joystick movement
+    // Limit joystick radius
     let distance = Math.sqrt(dx*dx + dy*dy);
 
     if(distance > maxRadius)
@@ -147,11 +291,14 @@ function processJoystick(clientX, clientY)
 // ================= MOUSE =================
 
 container.addEventListener("mousedown", (e)=>{
+
     dragging = true;
+
     processJoystick(e.clientX, e.clientY);
 });
 
 document.addEventListener("mousemove", (e)=>{
+
     if(dragging)
     {
         processJoystick(e.clientX, e.clientY);
@@ -159,6 +306,7 @@ document.addEventListener("mousemove", (e)=>{
 });
 
 document.addEventListener("mouseup", ()=>{
+
     dragging = false;
 
     moveJoystick(centerX, centerY);
@@ -169,6 +317,7 @@ document.addEventListener("mouseup", ()=>{
 // ================= TOUCH =================
 
 container.addEventListener("touchstart", (e)=>{
+
     dragging = true;
 
     const touch = e.touches[0];
@@ -177,6 +326,7 @@ container.addEventListener("touchstart", (e)=>{
 });
 
 container.addEventListener("touchmove", (e)=>{
+
     e.preventDefault();
 
     if(dragging)
@@ -188,6 +338,7 @@ container.addEventListener("touchmove", (e)=>{
 });
 
 container.addEventListener("touchend", ()=>{
+
     dragging = false;
 
     moveJoystick(centerX, centerY);
@@ -199,10 +350,11 @@ container.addEventListener("touchend", ()=>{
 
 </body>
 </html>
+
 )=====";
 
 
-// ================== MOTOR CONTROL ==================
+// ================= MOTOR CONTROL =================
 
 void setMotor(
     int in1,
@@ -236,6 +388,8 @@ void setMotor(
     }
 }
 
+// ================= ROVER CONTROL =================
+
 void moveRover(int leftSpeed, int rightSpeed)
 {
     // Left Motor
@@ -250,7 +404,7 @@ void stopMotors()
     moveRover(0,0);
 }
 
-// ================== WEB HANDLERS ==================
+// ================= WEB HANDLERS =================
 
 void handleRoot()
 {
@@ -261,7 +415,7 @@ void handleMove()
 {
     if(server.hasArg("left") && server.hasArg("right"))
     {
-        int leftSpeed = server.arg("left").toInt();
+        int leftSpeed  = server.arg("left").toInt();
         int rightSpeed = server.arg("right").toInt();
 
         moveRover(leftSpeed, rightSpeed);
@@ -274,7 +428,7 @@ void handleMove()
     }
 }
 
-// ================== SETUP ==================
+// ================= SETUP =================
 
 void setup()
 {
@@ -293,7 +447,8 @@ void setup()
 
     stopMotors();
 
-    // ================== START ACCESS POINT ==================
+    // ================= START AP =================
+
     WiFi.softAP(ssid, password);
 
     Serial.println();
@@ -302,7 +457,8 @@ void setup()
     Serial.print("IP Address: ");
     Serial.println(WiFi.softAPIP());
 
-    // ================== WEB ROUTES ==================
+    // ================= WEB ROUTES =================
+
     server.on("/", handleRoot);
 
     server.on("/move", handleMove);
@@ -312,7 +468,7 @@ void setup()
     Serial.println("Web Server Started");
 }
 
-// ================== LOOP ==================
+// ================= LOOP =================
 
 void loop()
 {
