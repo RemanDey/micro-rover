@@ -1,3 +1,118 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+
+// --- Configuration ---
+const char* WIFI_AP_SSID = "ESP_Rover";
+const char* WIFI_AP_PASS = "12345678";
+const char* WIFI_STA_SSID = "YOUR_HOUSE_WIFI_SSID";
+const char* WIFI_STA_PASS = "YOUR_HOUSE_WIFI_PASSWORD";
+const char* MDNS_NAME     = "micro-rover";
+
+// --- Hardware Pins ---
+const int PIN_IN1 = D1;
+const int PIN_IN2 = D2;
+const int PIN_IN3 = D6;
+const int PIN_IN4 = D7;
+const int PIN_ENA = D0;
+const int PIN_ENB = D5;
+
+const int MAX_PWM = 1023;
+
+ESP8266WebServer server(80);
+extern const char INDEX_HTML[] PROGMEM;
+
+// --- Arduino Lifecycle ---
+
+void setup() {
+    Serial.begin(115200);
+
+    // Pin Initialization
+    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(PIN_IN1, OUTPUT); pinMode(PIN_IN2, OUTPUT);
+    pinMode(PIN_IN3, OUTPUT); pinMode(PIN_IN4, OUTPUT);
+    pinMode(PIN_ENA, OUTPUT); pinMode(PIN_ENB, OUTPUT);
+
+    stopMotors();
+
+    // WiFi Setup
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+    WiFi.begin(WIFI_STA_SSID, WIFI_STA_PASS);
+
+    Serial.print("\nConnecting to WiFi");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    
+    Serial.printf("\nConnected! STA IP: %s, AP IP: %s\n", 
+                  WiFi.localIP().toString().c_str(), 
+                  WiFi.softAPIP().toString().c_str());
+
+    if (MDNS.begin(MDNS_NAME)) {
+        Serial.printf("mDNS: http://%s.local\n", MDNS_NAME);
+    }
+
+    server.on("/", handleRoot);
+    server.on("/move", handleMove);
+    server.begin();
+
+    Serial.println("Web Server Started");
+}
+
+void loop() {
+    server.handleClient();
+    MDNS.update();
+}
+
+// --- Motor Control Helpers ---
+
+void setMotor(int in1, int in2, int enablePin, int speedValue) {
+    speedValue = constrain(speedValue, -MAX_PWM, MAX_PWM);
+
+    if (speedValue > 0) {
+        digitalWrite(in1, HIGH);
+        digitalWrite(in2, LOW);
+        analogWrite(enablePin, speedValue);
+    } else if (speedValue < 0) {
+        digitalWrite(in1, LOW);
+        digitalWrite(in2, HIGH);
+        analogWrite(enablePin, -speedValue);
+    } else {
+        digitalWrite(in1, LOW);
+        digitalWrite(in2, LOW);
+        analogWrite(enablePin, 0);
+    }
+}
+
+void moveRover(int leftSpeed, int rightSpeed) {
+    setMotor(PIN_IN1, PIN_IN2, PIN_ENA, leftSpeed);
+    setMotor(PIN_IN3, PIN_IN4, PIN_ENB, rightSpeed);
+}
+
+void stopMotors() {
+    moveRover(0, 0);
+}
+
+// --- Web Server Handlers ---
+
+void handleRoot() {
+    server.send_P(200, "text/html", INDEX_HTML);
+}
+
+void handleMove() {
+    if (server.hasArg("left") && server.hasArg("right")) {
+        moveRover(server.arg("left").toInt(), server.arg("right").toInt());
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Bad Request");
+    }
+}
+
+// --- HTML Content ---
+
+const char INDEX_HTML[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
 <head>
@@ -149,3 +264,4 @@
     </script>
 </body>
 </html>
+)=====";
