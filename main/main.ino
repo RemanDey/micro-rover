@@ -5,8 +5,8 @@
 // --- Configuration ---
 const char* WIFI_AP_SSID = "micro_rover";
 const char* WIFI_AP_PASS = "12345678";
-const char* WIFI_STA_SSID = "remanlaptop";
-const char* WIFI_STA_PASS = "12345678";
+const char* WIFI_STA_SSID = "YOUR_WIFI_ID";
+const char* WIFI_STA_PASS = "YOUR_WIFI_PASSWORD";
 const char* MDNS_NAME     = "micro-rover";
 
 // --- Hardware Pins ---
