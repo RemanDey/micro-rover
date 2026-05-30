@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Zade - Differential Drive Rover</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { margin:0; background:#111; color:white; font-family:Arial; text-align:center; }
+        h1 { margin-top:20px; }
+        #joystickContainer { width:300px; height:300px; background:#222; border-radius:50%; margin:40px auto; position:relative; touch-action:none; }
+        #joystick { width:100px; height:100px; background:#3498db; border-radius:50%; position:absolute; left:100px; top:100px; }
+        #trajectoryCanvas { background: #000; border: 1px solid #444; margin-top: 20px; border-radius: 8px; max-width: 90vw; }
+        .info { font-size:20px; margin-top:20px; }
+        button { background: #3498db; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; margin: 10px; transition: background 0.3s; }
+        button:hover { background: #2980b9; }
+        button.active { background: #ff4757; }
+    </style>
+</head>
+<body>
+    <h1>Control Zade</h1>
+    <div id="joystickContainer"><div id="joystick"></div></div>
+    <div class="info">Drag joystick to move rover</div>
+    <canvas id="trajectoryCanvas" width="400" height="400"></canvas>
+    <br>
+    <button onclick="resetTrajectory()">Reset Trajectory</button>
+    <button id="drawBtn" onclick="toggleDrawMode()">Draw Mode: OFF</button>
+    <button id="tiltBtn" onclick="toggleTiltControl()">Tilt Control: OFF</button>
+    <button onclick="followDrawnPath()">Follow Path</button>
+    <script>
+        const joy = document.getElementById("joystick");
+        const container = document.getElementById("joystickContainer");
+        const canvas = document.getElementById("trajectoryCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let dragging = false;
+        let drawMode = false;
+        let tiltEnabled = false;
+        let drawnPath = []; // Stores {forward, turn} commands
+        let drawnPathCoordinates = []; // Stores {x, y} for visual representation of the drawn path
+        let simulatedDrawX = 0; // Temporary for drawing simulation
+        let simulatedDrawY = 0; // Temporary for drawing simulation
+        let simulatedDrawHeading = 0; // Temporary for drawing simulation
+        let isFollowing = false;
+        let targetPointIndex = 0;
+        const centerX = 150, centerY = 150, maxRadius = 100;
+        const speedScale = 0.0015; // Global constant for movement simulation
+        const turnScale = 0.000006; // Global constant for movement simulation
+        let curL = 0, curR = 0;
+        let roverX = canvas.width / 2;
+        let roverY = canvas.height / 2;
+        let roverHeading = -Math.PI / 2;
+        let path = [{x: roverX, y: roverY}];
+
+        function sendMotor(left, right) { 
+            console.log(`Command sent: L=${left}, R=${right}`);
+            fetch(`/move?left=${left}&right=${right}`)
+                .catch(err => {
+                    console.error("Communication error with rover:", err);
+                });
+        }
+
+        function moveJoystick(x, y) { joy.style.left = (x - 50) + "px"; joy.style.top = (y - 50) + "px"; }
+
+        function resetTrajectory() {
+            roverX = canvas.width / 2;
+            roverY = canvas.height / 2;
+            roverHeading = -Math.PI / 2;
+            path = [{x: roverX, y: roverY}];
+        }
+
+        function toggleDrawMode() {
+            drawMode = !drawMode;
+            document.getElementById('drawBtn').innerText = `Draw Mode: ${drawMode ? 'ON' : 'OFF'}`;
+            document.getElementById('drawBtn').classList.toggle('active', drawMode);
+            if(drawMode) {
+                stop(); // Ensure real motors stop before drawing starts
+                drawnPath = [];
+                drawnPathCoordinates = [{x: roverX, y: roverY}]; // Start drawing from current rover position
+                simulatedDrawX = roverX; simulatedDrawY = roverY; simulatedDrawHeading = roverHeading;
+            }
+        }
+
+        function toggleTiltControl() {
+            if (!tiltEnabled && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(response => {
+                    if (response == 'granted') { tiltEnabled = true; startTilt(); }
+                });
+            } else {
+                tiltEnabled = !tiltEnabled;
+                if(tiltEnabled) startTilt();
+            }
+            document.getElementById('tiltBtn').innerText = `Tilt Control: ${tiltEnabled ? 'ON' : 'OFF'}`;
+            document.getElementById('tiltBtn').classList.toggle('active', tiltEnabled);
+        }
+
+        function startTilt() {
+            window.addEventListener('deviceorientation', (e) => {
+                if(!tiltEnabled || dragging) return;
+                // Beta: Front-to-back tilt (-90 to 90), Gamma: Left-to-right (-90 to 90)
+                let forward = Math.max(-1, Math.min(1, e.beta / 45));
+                let turn = Math.max(-1, Math.min(1, e.gamma / 45));
+
+                updateMotorValues(forward, turn);
+                moveJoystick(centerX + turn * maxRadius, centerY - forward * maxRadius);
+            });
+        }
+
+        function followDrawnPath() {
+            if (drawnPath.length < 2) {
+                alert("Please draw a path first!");
+                return;
+            }
+            isFollowing = true;
+            targetPointIndex = 0;
+            executePathStep();
+        }
+
+        function executePathStep() {
+            if (!isFollowing || targetPointIndex >= drawnPath.length) { stop(); return; }
+            const command = drawnPath[targetPointIndex];
+            updateMotorValues(command.forward, command.turn);
+            targetPointIndex++;
+            setTimeout(executePathStep, 50);
+        }
+
+        function processJoystick(clientX, clientY) {
+            isFollowing = false; // Manual override
+            if(drawMode) {
+                const rect = container.getBoundingClientRect();
+                let dx = clientX - rect.left - centerX;
+                let dy = centerY - (clientY - rect.top);
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance > maxRadius) { dx *= maxRadius / distance; dy *= maxRadius / distance; }
+
+                let forward = dy / maxRadius;
+                let turn = dx / maxRadius;
+
+                drawnPath.push({forward: forward, turn: turn});
+
+                // Simulate movement for drawing the path
+                let simulatedL = parseInt((forward + turn) * 1023);
+                let simulatedR = parseInt((forward - turn) * 1023);
+
+                const v = (simulatedL + simulatedR) / 2 * speedScale;
+                const w = (simulatedL - simulatedR) * turnScale;
+
+                simulatedDrawHeading += w;
+                simulatedDrawX += v * Math.cos(simulatedDrawHeading);
+                simulatedDrawY += v * Math.sin(simulatedDrawHeading);
+
+                drawnPathCoordinates.push({x: simulatedDrawX, y: simulatedDrawY});
+                return; // Do not send motor commands when in draw mode
+            }
+            const rect = container.getBoundingClientRect();
+            let dx = clientX - rect.left - centerX;
+            let dy = centerY - (clientY - rect.top);
+            let distance = Math.sqrt(dx*dx + dy*dy);
+            if (distance > maxRadius) { dx *= maxRadius / distance; dy *= maxRadius / distance; }
+            moveJoystick(centerX + dx, centerY - dy);
+            let forward = dy / maxRadius, turn = dx / maxRadius;
+            updateMotorValues(forward, turn);
+        }
+
+        function updateMotorValues(forward, turn) {
+            let leftMotor = Math.max(-1, Math.min(1, forward + turn));
+            let rightMotor = Math.max(-1, Math.min(1, forward - turn));
+            let newL = parseInt(leftMotor * 1023);
+            let newR = parseInt(rightMotor * 1023);
+            
+            if (newL !== curL || newR !== curR) {
+                curL = newL;
+                curR = newR;
+                sendMotor(curL, curR);
+            }
+        }
+
+        function updateTrajectory() {
+            if (curL !== 0 || curR !== 0) {
+                const v = (curL + curR) / 2 * speedScale;
+                const w = (curL - curR) * turnScale;
+                
+                roverHeading += w;
+                roverX += v * Math.cos(roverHeading);
+                roverY += v * Math.sin(roverHeading);
+                
+                path.push({x: roverX, y: roverY});
+                if (path.length > 3000) path.shift();
+            }
+
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw user-drawn path if it exists
+            if (drawnPathCoordinates.length > 0) {
+                ctx.strokeStyle = "#f1c40f"; // Yellow for the drawn path
+                ctx.beginPath();
+                ctx.moveTo(drawnPathCoordinates[0].x, drawnPathCoordinates[0].y);
+                drawnPathCoordinates.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = "#3498db";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.stroke();
+
+            // Draw Rover Pointer (Orientation)
+            ctx.save();
+            ctx.translate(roverX, roverY);
+            ctx.rotate(roverHeading);
+            ctx.fillStyle = "#ff4757"; // Red pointer for visibility
+            ctx.beginPath();
+            ctx.moveTo(12, 0); // Tip
+            ctx.lineTo(-8, -8);
+            ctx.lineTo(-8, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            requestAnimationFrame(updateTrajectory);
+        }
+
+        const start = (e) => { dragging = true; processJoystick(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY); };
+        const move = (e) => { if (dragging) { if(e.touches) e.preventDefault(); processJoystick(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY); } };
+        const stop = () => { dragging = false; isFollowing = false; moveJoystick(centerX, centerY); curL = 0; curR = 0; sendMotor(0,0); };
+
+        const keys = {};
+        const updateKeyboardControl = () => {
+            isFollowing = false; // Manual override
+            if (dragging) return; // Joystick takes priority
+            let forward = 0, turn = 0;
+            if (keys['w'] || keys['arrowup']) forward += 1;
+            if (keys['s'] || keys['arrowdown']) forward -= 1;
+            if (keys['a'] || keys['arrowleft']) turn -= 1;
+            if (keys['d'] || keys['arrowright']) turn += 1;
+
+            if (drawMode) { // If in draw mode, record commands and simulate path
+                drawnPath.push({forward: forward, turn: turn});
+
+                // Simulate movement for drawing the path
+                let simulatedL = parseInt((forward + turn) * 1023);
+                let simulatedR = parseInt((forward - turn) * 1023);
+
+                const v = (simulatedL + simulatedR) / 2 * speedScale;
+                const w = (simulatedL - simulatedR) * turnScale;
+
+                simulatedDrawHeading += w;
+                simulatedDrawX += v * Math.cos(simulatedDrawHeading);
+                simulatedDrawY += v * Math.sin(simulatedDrawHeading);
+
+                drawnPathCoordinates.push({x: simulatedDrawX, y: simulatedDrawY});
+                return;
+            }
+
+            // Sync keyboard to visual joystick
+            moveJoystick(centerX + turn * maxRadius, centerY - forward * maxRadius);
+            updateMotorValues(forward, turn);
+        };
+
+        document.addEventListener("keydown", (e) => { keys[e.key.toLowerCase()] = true; updateKeyboardControl(); });
+        document.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; updateKeyboardControl(); });
+
+        container.addEventListener("mousedown", start);
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", stop);
+        container.addEventListener("touchstart", start);
+        container.addEventListener("touchmove", move);
+        container.addEventListener("touchend", stop);
+
+        updateTrajectory();
+    </script>
+</body>
+</html>
