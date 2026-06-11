@@ -34,7 +34,7 @@ let generated = 0;
 mdFiles.forEach(mdPath => {
   const rel = path.relative(repoRoot, mdPath);
   const content = fs.readFileSync(mdPath, 'utf8');
-  const re = /```(?:mermaid(?:[\s\S]*?)?)\n([\s\S]*?)\n```/g;
+  const re = /```mermaid\s*\n([\s\S]*?)\n```/g;
   let m;
   let idx = 0;
   while ((m = re.exec(content)) !== null) {

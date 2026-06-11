@@ -180,23 +180,10 @@ To track coordinates <b><i>(x, y)</i></b> and heading orientation <b><i>θ</i></
 
 The firmware initialization and execution cycle inside the single-threaded microcontroller system are illustrated by the state diagram below:
 
-```mermaid
-stateDiagram-v2
-    [*] --> PowerOn
-    PowerOn --> InitGPIO : Initialize GPIO Pin Modes
-    InitGPIO --> InitWiFi : Start Wireless AP Mode
-    InitWiFi --> InitMDNS : Start mDNS Responder
-    InitMDNS --> ServerStart : Initialize Web Server (Port 80)
-    ServerStart --> SystemReady : Enter loop()
-
-    state SystemReady {
-        [*] --> Idle
-        Idle --> Moving : /move REST Command Received
-        Moving --> Idle : Velocity Timeout / Speed Set to 0
-        Idle --> ServingHTML : / Root Request Received
-        ServingHTML --> Idle : Complete Static Page Delivery
-    }
-```
+<div align="center">
+  <img src="docs/diagrams/README_md_diagram_1.svg" alt="State Transition Control Flow" width="600" style="border-radius: 8px;" />
+  <br /><em>Figure 6: Firmware state machine and execution flow</em>
+</div>
 
 ---
 
