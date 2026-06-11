@@ -1,0 +1,43 @@
+name: Render Mermaid diagrams
+
+on:
+  push:
+    paths:
+      - '**/*.md'
+      - '.github/**'
+  pull_request:
+    paths:
+      - '**/*.md'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Run renderer
+        run: node .github/scripts/render-mermaid.js
+
+      - name: Commit generated diagrams
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/diagrams || true
+          if git diff --staged --quiet; then
+            echo "No diagrams changed."
+          else
+            git commit -m "ci: render mermaid diagrams [skip ci]" || true
+            git push
+          fi
