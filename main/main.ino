@@ -36,18 +36,10 @@ void setup() {
     stopMotors();
 
     // WiFi Setup
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
-    WiFi.begin(WIFI_STA_SSID, WIFI_STA_PASS);
-
-    Serial.print("\nConnecting to WiFi");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
     
-    Serial.printf("\nConnected! STA IP: %s, AP IP: %s\n", 
-                  WiFi.localIP().toString().c_str(), 
+    Serial.printf("\nAccess Point Started! AP IP: %s\n", 
                   WiFi.softAPIP().toString().c_str());
 
     if (MDNS.begin(MDNS_NAME)) {
