@@ -133,31 +133,46 @@ The following step-by-step visual log documents the assembly process of the rove
 ### 3.1 Kinematics
 The robot employs a two-wheel differential drive kinematics model. Steering is achieved by creating a velocity differential between the left and right wheels.
 
-Given a normalized linear velocity input $v \in [-1, 1]$ and a normalized angular velocity input $w \in [-1, 1]$ from the user interface:
+Given a normalized linear velocity input <b><i>v</i> ∈ [-1, 1]</b> and a normalized angular velocity input <b><i>ω</i> ∈ [-1, 1]</b> from the user interface:
 
-$$V_L = \text{clamp}(v + w, -1, 1)$$
-$$V_R = \text{clamp}(v - w, -1, 1)$$
+<div align="center">
+  <i><b>V<sub>L</sub> = clamp(v + ω, -1, 1)</b></i>
+  <br />
+  <i><b>V<sub>R</sub> = clamp(v - ω, -1, 1)</b></i>
+</div>
 
-Where $V_L$ and $V_R$ are the target left and right wheel velocities respectively. These values are mapped to 10-bit pulse-width modulation (PWM) values for the motor driver pins:
+Where <b><i>V<sub>L</sub></i></b> and <b><i>V<sub>R</sub></i></b> are the target left and right wheel velocities respectively. These values are mapped to 10-bit pulse-width modulation (PWM) values for the motor driver pins:
 
-$$\text{PWM}_L = V_L \times 1023$$
-$$\text{PWM}_R = V_R \times 1023$$
+<div align="center">
+  <i><b>PWM<sub>L</sub> = V<sub>L</sub> × 1023</b></i>
+  <br />
+  <i><b>PWM<sub>R</sub> = V<sub>R</sub> × 1023</b></i>
+</div>
 
 ### 3.2 Dead Reckoning (Odometry)
-By translating wheel speeds ($V_L, V_R$) into tangential physical velocities $v_L$ and $v_R$ using the wheel radius $r$ and angular velocities $\omega_L, \omega_R$:
+By translating wheel speeds <b><i>(V<sub>L</sub>, V<sub>R</sub>)</i></b> into tangential physical velocities <b><i>v<sub>L</sub></i></b> and <b><i>v<sub>R</sub></i>v<sub>R</sub></i></b> using the wheel radius <b><i>r</i></b>, the and angular velocities <b><i>ω<sub>L</sub>, ω<sub>R</sub></i></b>:
 
-$$v_L = r \cdot \omega_L, \quad v_R = r \cdot \omega_R$$
+<div align="center">
+  <i><b>v<sub>L</sub> = r · ω<sub>L</sub>, &nbsp;&nbsp;&nbsp; v<sub>R</sub> = r · ω<sub>R</sub></b></i>
+</div>
 
-The aggregate linear velocity $v_{robot}$ and angular velocity $\omega_{robot}$ are calculated relative to the wheelbase chassis track width $L$:
+The aggregate linear velocity <b><i>v<sub>robot</sub></i></b> and angular velocity <b><i>ω<sub>robot</sub></i></b> are calculated relative to the wheelbase chassis track width L:
 
-$$v_{robot} = \frac{v_R + v_L}{2}$$
-$$\omega_{robot} = \frac{v_R - v_L}{L}$$
+<div align="center">
+  <i><b>v<sub>robot</sub> = (v<sub>R</sub> + v<sub>L</sub>) / 2</b></i>
+  <br />
+  <i><b>ω<sub>robot</sub> = (v<sub>R</sub> - v<sub>L</sub>) / L</b></i>
+</div>
 
-To track coordinates $(x, y)$ and heading orientation $\theta$ in the global coordinate frame across small time increments $\Delta t$:
+To track coordinates <b><i>(x, y)</i></b> and heading orientation <b><i>θ</i></b> in the global coordinate frame across small time increments <b><i>Δt</i></b>:
 
-$$x_{t+\Delta t} = x_t + v_{robot} \cdot \cos(\theta_t) \cdot \Delta t$$
-$$y_{t+\Delta t} = y_t + v_{robot} \cdot \sin(\theta_t) \cdot \Delta t$$
-$$\theta_{t+\Delta t} = \theta_t + \omega_{robot} \cdot \Delta t$$
+<div align="center">
+  <i><b>x<sub>t+Δt</sub> = x<sub>t</sub> + v<sub>robot</sub> · cos(θ<sub>t</sub>) · Δt</b></i>
+  <br />
+  <i><b>y<sub>t+Δt</sub> = y<sub>t</sub> + v<sub>robot</sub> · sin(θ<sub>t</sub>) · Δt</b></i>
+  <br />
+  <i><b>θ<sub>t+Δt</sub> = θ<sub>t</sub> + ω<sub>robot</sub> · Δt</b></i>
+</div>
 
 ---
 
